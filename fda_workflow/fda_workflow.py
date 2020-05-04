@@ -9,6 +9,11 @@ from porerefiner.jobs import FileJob, RunJob
 from porerefiner.jobs.submitters import Submitter
 from porerefiner.models import Run, File
 
+import json
+import subprocess
+import os.path
+
+
 # @dataclass
 # class FdaWorkflowNotifier(Notifier):
 #     """Configurable run completion notifier. Implement async method 'notify.'"""
@@ -69,12 +74,21 @@ class FdaRunJob(RunJob):
 
     command: str
     platform: str
+    remote_json_dir: str = "~/run_meta"
     closure_status_recipients: list
     import_ready_recipients: list
 
     def setup(self, run: Run, datadir: Path, remotedir: Path) -> Union[str, Tuple[str, dict]]:
         "Set up the job. Return a string for the job submitter, and optionally a dictionary of execution hints."
-        pass
+        try:
+            host = subprocess.run(["hostname"], stdout=subprocess.PIPE).stdout
+        except subprocess.CalledProcessError:
+            host = "unknown_host"
+        remote_json = os.path.join(remote_json_dir, f"{host}_{run.name}.json")
+        record = dict(
+            porerefiner_ver="1.0.0"
+        )
+        return self.command.format(**locals())
 
     def collect(self, run: Run, datadir: Path, pid: Union[str, int]) -> None:
         "Post-job processing. Handle cleanup and make changes to the run or its records."

@@ -101,8 +101,8 @@ class FdaRunJob(RunJob):
       - justin.payne@fda.hhs.gov
     """
 
-    command: str
-    platform: str
+    command: str = "module load nanopore-lims/0.1.0 && nanopore_HPC {remote_json} &"
+    platform: str = "GridION sequence"
     closure_status_recipients: list
     import_ready_recipients: list
 
@@ -120,6 +120,7 @@ class FdaRunJob(RunJob):
             barcoding_kit=[run.samplesheet.barcoding_kit or ""],
             flowcell=run.flowcell or "",
             sequencer=host,
+            platform=self.platform,
             relative_location=run.path,
             run_month=run.started.month,
             run_year=run.started.year,
@@ -143,6 +144,8 @@ class FdaRunJob(RunJob):
 
         with open(datadir / f"{host}_{run.name}", 'w') as fp:
             json.dump(record, fp)
+
+        remote_json = remotedir / f"{host}_{run.name}.json"
 
         return (self.command.format(**locals()), {}) # execution hints later on, maybe
 

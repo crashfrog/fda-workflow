@@ -86,9 +86,37 @@ class FdaRunJob(RunJob):
             host = "unknown_host"
         remote_json = os.path.join(remote_json_dir, f"{host}_{run.name}.json")
         record = dict(
-            porerefiner_ver="1.0.0"
+            porerefiner_ver="1.0.0",
+            library_id=run.samplesheet.library_id or "",
+            sequencing_kit=run.samplesheet.sequencing_kit or "",
+            barcoding_kit=[run.samplesheet.barcoding_kit or ""],
+            flowcell=run.flowcell or "",
+            sequencer=host,
+            relative_location=run.path,
+            run_month=run.started.month,
+            run_year=run.started.year,
+            run_id=run.alt_name,
+            notifications=dict(
+                genome_closure_status=self.closure_status_recipients or [],
+                import_ready=self.import_ready_recipients or [],
+            ),
+            samples=[
+                dict(
+                    sample_id=sample.sample_id,
+                    accession=sample.accession,
+                    barcode_id=sample.barcode_id,
+                    organism=sample.organism,
+                    extraction_kit=sample.extraction_kit,
+                    comment=sample.comment,
+                    user=sample.user
+                ) for sample in run.samplesheet.samples
+            ]
         )
-        return self.command.format(**locals())
+
+        with open(datadir / f"{host}_{run.name}", 'w') as fp:
+            json.dump(record, fp)
+
+        return (self.command.format(**locals()), {}) # execution hints later on, maybe
 
     def collect(self, run: Run, datadir: Path, pid: Union[str, int]) -> None:
         "Post-job processing. Handle cleanup and make changes to the run or its records."

@@ -58,6 +58,35 @@ import os.path
 #         "Post-job processing. Handle cleanup and make changes to the run or its records."
 #         pass
 
+# {
+#       "porerefiner_ver": "1.0.0",
+#       "library_id": "TEST_TEST",
+#       "sequencing_kit": "SQK-LSK109",
+#       "barcoding_kit": "SQK-RBK004",
+#       "flowcell": "FAK80437",
+#       "sequencer": "Revolution",
+#       "relative_location": "/FAK80437/FAK80437/20190911_1923_GA10000_FAK80437_bceaf277",
+#       "run_month": "11",
+#       "run_year": "2019",
+#       "run_id": "priceless_wing",
+#        "notifications": {
+#         "genome_closure_status": [ "Fred.Garvin@fda.hhs.gov", "Veet.Voojagig@fda.hhs.gov" ],
+#         "import_ready": [ "Gag.Halfrunt@fda.hhs.gov" ]
+#         },
+#       "samples": [
+#           {
+#               "sample_id": "CFSAN00101",
+#               "accession": "ACC_TEST_01",
+#               "barcode_id": "09",
+#               "organism": "Pseudomonas aeruginosa",
+#               "extraction_kit": "TEST_KIT_KIT",
+#               "comment": " 44",
+#               "user": "justin.payne@fda.hhs.gov"
+#           }
+#      ]
+# }
+
+
 
 @dataclass
 class FdaRunJob(RunJob):
@@ -74,7 +103,6 @@ class FdaRunJob(RunJob):
 
     command: str
     platform: str
-    remote_json_dir: str = "~/run_meta"
     closure_status_recipients: list
     import_ready_recipients: list
 
@@ -84,10 +112,34 @@ class FdaRunJob(RunJob):
             host = subprocess.run(["hostname"], stdout=subprocess.PIPE).stdout
         except subprocess.CalledProcessError:
             host = "unknown_host"
-        remote_json = os.path.join(remote_json_dir, f"{host}_{run.name}.json")
+        # remote_json = os.path.join(self.remote_json_dir, f"{host}_{run.name}.json")
         record = dict(
-            porerefiner_ver="1.0.0"
+            porerefiner_ver="1.0.0",
+            library_id=run.sample_sheet.library_id,
+            sequencing_kit=run.sample_sheet.sequencing_kit,
+            barcoding_kit=run.sample_sheet.barcoding_kit,
+            flowcell=run.flowcell,
+            sequencer=host,
+            relative_location=str(remotedir),
+            run_month=run.started.month,
+            run_year=run.started.year,
+            run_id=run.run_id,
+            notifications=dict(
+                genome_closure_status=self.closure_status_recipients,
+                import_ready=self.import_ready_recipients
+            ),
+            samples=[
+                dict(sample_id=sample.sample_id,
+                     accession=sample.accession,
+                     barcode_id=sample.barcode_id,
+                     organism=sample.organism,
+                     extraction_kit=sample.extraction_kit,
+                     comment=sample.comment,
+                     user=sample.user)
+            for sample in run.sample_sheet.samples]
         )
+        with open(datadir / f"{host}_{run.name}.json", 'w') as json_file:
+            json.dump(json_file, record)
         return self.command.format(**locals())
 
     def collect(self, run: Run, datadir: Path, pid: Union[str, int]) -> None:

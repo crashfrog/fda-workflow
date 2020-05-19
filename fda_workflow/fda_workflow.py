@@ -1,6 +1,6 @@
 """Main module."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Union, Tuple
 
@@ -12,6 +12,21 @@ from porerefiner.models import Run, File
 import json
 import subprocess
 import os.path
+
+"""
+submitters:
+  - class: HpcSubmitter
+    config:
+      login_host: login1-raven.fda.gov
+      username: nanopore
+      private_key_path: /root/.ssh/nanopore
+      known_hosts_path: /root/.ssh/known_hosts
+      scheduler: uge
+      queue: service.q
+    jobs:
+      - class: FdaRunJob
+        config: {}
+"""
 
 
 # @dataclass
@@ -103,25 +118,25 @@ class FdaRunJob(RunJob):
 
     command: str = "module load nanopore-lims/0.1.0 && nanopore_HPC {remote_json} &"
     platform: str = "GridION sequence"
-    closure_status_recipients: list
-    import_ready_recipients: list
+    closure_status_recipients: list = field(default_factory=list)
+    import_ready_recipients: list = field(default_factory=list)
 
     def setup(self, run: Run, datadir: Path, remotedir: Path) -> Union[str, Tuple[str, dict]]:
         "Set up the job. Return a string for the job submitter, and optionally a dictionary of execution hints."
         try:
-            host = subprocess.run(["hostname"], stdout=subprocess.PIPE).stdout
+            host = str(subprocess.run(["hostname"], stdout=subprocess.PIPE).stdout, encoding='UTF-8').strip()
         except subprocess.CalledProcessError:
             host = "unknown_host"
         # remote_json = os.path.join(self.remote_json_dir, f"{host}_{run.name}.json")
         record = dict(
             porerefiner_ver="1.0.0",
-            library_id=run.samplesheet.library_id or "",
-            sequencing_kit=run.samplesheet.sequencing_kit or "",
-            barcoding_kit=[run.samplesheet.barcoding_kit or ""],
+            library_id=run.sample_sheet.library_id or "",
+            sequencing_kit=run.sample_sheet.sequencing_kit or "",
+            barcoding_kit=[run.sample_sheet.barcoding_kit or ""],
             flowcell=run.flowcell or "",
             sequencer=host,
             platform=self.platform,
-            relative_location=run.path,
+            relative_location=str(run.path),
             run_month=run.started.month,
             run_year=run.started.year,
             run_id=run.alt_name,
@@ -138,11 +153,11 @@ class FdaRunJob(RunJob):
                     extraction_kit=sample.extraction_kit,
                     comment=sample.comment,
                     user=sample.user
-                ) for sample in run.samplesheet.samples
+                ) for sample in run.sample_sheet.samples
             ]
         )
 
-        with open(datadir / f"{host}_{run.name}", 'w') as fp:
+        with open(datadir / f"{host}_{run.name}.json", 'w') as fp:
             json.dump(record, fp)
 
         remote_json = remotedir / f"{host}_{run.name}.json"

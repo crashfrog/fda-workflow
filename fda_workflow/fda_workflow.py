@@ -7,7 +7,9 @@ from typing import Any, Union, Tuple
 from porerefiner.notifiers import Notifier
 from porerefiner.jobs import FileJob, RunJob
 from porerefiner.jobs.submitters import Submitter
+from porerefiner.jobs.submitters.hpc import HpcSubmitter
 from porerefiner.models import Run, File
+from porerefiner.config import Config
 
 import json
 import subprocess
@@ -39,39 +41,28 @@ submitters:
 #         "Handler for notifications. `state` is not currently implemented."
 #         pass
 
-# @dataclass
-# class FdaWorkflowSubmitter(Submitter):
-#     """Configurable job runner. Implement the below methods."""
+@dataclass
+class FdaWorkflowSubmitter(HpcSubmitter):
+    """Configurable job runner. Implement the below methods."""
 
-#     fda_workflow_sample_param: str
+    def reroot_path(self, path: Path) -> Path:
+        "Submitters should translate paths to be relative to execution environment"
+        return Path(self.remote_root) / path.relative_to(Config()['nanopore']['data'])
 
-#     async def test_noop(self) -> None:
-#         "No-op method submitters should implement to make sure the submitter can access an external resource."
-#         pass
 
-#     def reroot_path(self, path: Path) -> Path:
-#         "Submitters should translate paths to be relative to execution environment"
-#         pass
+@dataclass
+class FdaWorkflowFileJob(FileJob):
+    """Configurable job that will be triggered whenever a file enters a completed state."""
 
-#     async def begin_job(self, execution_string: str, datadir: Path, remotedir: Path, environment_hints: dict = {}) -> str:
-#         "Semantics of scheduling a job. Jobs can provide execution hints. Return an optional job id"
-#         pass
+    command: str = """rsync -q --no-motd {file.path} {self.submitter.login_host}:{remotedir}/{file.name} """
 
-#     async def poll_job(self, job:str) -> str:
-#         "Semantics of polling a job."
-#         pass
+    def setup(self, run: Run, file: File, datadir: Path, remotedir: Path) -> Union[str, Tuple[str, dict]]:
+        "Set up the job. Return a string for the job submitter, and optionally a dictionary of execution hints."
+        return command.format(**locals())
 
-# @dataclass
-# class FdaWorkflowFileJob(FileJob):
-#     """Configurable job that will be triggered whenever a file enters a completed state."""
-
-#     def setup(self, run: Run, file: File, datadir: Path, remotedir: Path) -> Union[str, Tuple[str, dict]]:
-#         "Set up the job. Return a string for the job submitter, and optionally a dictionary of execution hints."
-#         pass
-
-#     def collect(self, run: Run, file: File, datadir: Path, pid: Union[str, int]) -> None:
-#         "Post-job processing. Handle cleanup and make changes to the run or its records."
-#         pass
+    def collect(self, run: Run, file: File, datadir: Path, pid: Union[str, int]) -> None:
+        "Post-job processing. Handle cleanup and make changes to the run or its records."
+        pass
 
 # {
 #       "porerefiner_ver": "1.0.0",
@@ -120,6 +111,7 @@ class FdaRunJob(RunJob):
     platform: str = "GridION sequence"
     closure_status_recipients: list = field(default_factory=list)
     import_ready_recipients: list = field(default_factory=list)
+    rsync_command: str = """rsync -q --no-motd {record} {self.submitter.login_host}:{remotedir}/{file.name} """
 
     def setup(self, run: Run, datadir: Path, remotedir: Path) -> Union[str, Tuple[str, dict]]:
         "Set up the job. Return a string for the job submitter, and optionally a dictionary of execution hints."
@@ -136,7 +128,7 @@ class FdaRunJob(RunJob):
             flowcell=run.flowcell or "",
             sequencer=host,
             platform=self.platform,
-            relative_location=str(run.path),
+            relative_location=str(self.submitter.reroot_path(run.path)),
             run_month=run.started.month,
             run_year=run.started.year,
             run_id=run.alt_name,
@@ -161,6 +153,8 @@ class FdaRunJob(RunJob):
             json.dump(record, fp)
 
         remote_json = remotedir / f"{host}_{run.name}.json"
+
+        subprocess.run(rsync_command.format(**locals()))
 
         return (self.command.format(**locals()), {}) # execution hints later on, maybe
 

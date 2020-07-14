@@ -144,8 +144,14 @@ class FdaRunJob(RunJob):
                     organism=sample.organism,
                     extraction_kit=sample.extraction_kit,
                     comment=sample.comment,
-                    user=sample.user
+                    user=sample.user,
+                    tags=[
+                        str(tag) for tag in sample.tags
+                    ]
                 ) for sample in run.sample_sheet.samples
+            ],
+            tags=[
+                str(tag) for tag in run.tags
             ]
         )
 

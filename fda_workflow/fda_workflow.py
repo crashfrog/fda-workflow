@@ -42,7 +42,7 @@ submitters:
 #         pass
 
 @dataclass
-class FdaWorkflowSubmitter(HpcSubmitter):
+class FdaWorkflowSubmitter(Submitter, HpcSubmitter):
     """Configurable job runner. Implement the below methods."""
 
     def reroot_path(self, path: Path) -> Path:

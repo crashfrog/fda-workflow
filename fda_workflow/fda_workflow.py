@@ -56,7 +56,7 @@ class FdaWorkflowSubmitter(Submitter):
 
     def reroot_path(self, path: Path) -> Path:
         "Submitters should translate paths to be relative to execution environment"
-        return Path(self.remote_root) / path.relative_to(Config['nanopore']['data'])
+        return Path(self.remote_root) / path.relative_to(Config['nanopore']['path'])
 
     async def send(self, cmd):
         async with connect(self.login_host,

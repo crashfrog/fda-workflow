@@ -88,7 +88,7 @@ class FdaWorkflowFileJob(FileJob):
 
     def setup(self, run: Run, file: File, datadir: Path, remotedir: Path) -> Union[str, Tuple[str, dict]]:
         "Set up the job. Return a string for the job submitter, and optionally a dictionary of execution hints."
-        return command.format(**locals())
+        return selfcommand.format(**locals())
 
     def collect(self, run: Run, file: File, datadir: Path, pid: Union[str, int]) -> None:
         "Post-job processing. Handle cleanup and make changes to the run or its records."

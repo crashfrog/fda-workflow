@@ -10,7 +10,8 @@ with open('README.rst') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = ['porerefiner >= 0.8.5',]
+requirements = ['porerefiner >= 0.8.21',
+                'asyncssh >= 2.3.0',]
 
 setup_requirements = [ ]
 

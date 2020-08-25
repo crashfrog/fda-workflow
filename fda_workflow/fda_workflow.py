@@ -11,6 +11,8 @@ from porerefiner.jobs.submitters.hpc import HpcSubmitter
 from porerefiner.models import Run, File
 from porerefiner.config import Config
 
+from asyncssh import connect
+
 import asyncio
 import json
 import subprocess
